@@ -4,14 +4,7 @@ import json
 # pylint: disable=import-error
 
 from search.util import print_move, print_boom, print_board
-
-def distance(p1, p2):
-    x1,y1 = p1
-    x2,y2 = p2
-    return max(abs(x1-x2), abs(y1-y2))
-
-def getCoords(token):
-    return [token[1], token[2]]
+from search.useful import getCoords, distance
 
 def main():
     with open(sys.argv[1]) as file:
