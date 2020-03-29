@@ -19,6 +19,13 @@ def print_boom(x, y, **kwargs):
     """
     print("BOOM at {}.".format((x, y)), **kwargs)
 
+def print_gamestate(gs):
+    display = {}
+    for token in gs["white"]:
+        display[(token[1],token[2])] = "w"+str(token[0])
+    for token in gs["black"]:
+        display[(token[1],token[2])] = "b"+str(token[0])
+    print_board(display)
 
 def print_board(board_dict, message="", unicode=False, compact=True, **kwargs):
     """

@@ -3,7 +3,7 @@ import json
 
 # pylint: disable=import-error
 
-from search.util import print_move, print_boom, print_board
+from search.util import print_move, print_boom, print_board, print_gamestate
 from search.useful import getCoords, distance
 
 def main():

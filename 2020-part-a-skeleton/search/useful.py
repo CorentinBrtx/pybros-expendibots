@@ -13,9 +13,17 @@ def distance(t1, t2):
     return max(abs(x1-x2), abs(y1-y2))
 
 def goalAchieved(gameState):
-    myToken = gameState["white"][0]
-    target = gameState["black"][0]
-    return (distance(myToken, target) <= 1)
+
+    nbBlack = len(gameState["black"])
+    killed = [False for _ in range(nbBlack)]
+
+    for _ in range(nbBlack):
+        for i in range(nbBlack):
+            if not killed[i]:
+                if min([distance(gameState["black"][i], wToken) for wToken in gameState["white"]] + [distance(gameState["black"][i], gameState["black"][j]) for j in range(nbBlack) if killed[j]]) <= 1:
+                    killed[i] = True
+
+    return all(killed)
 
 def move(gameState, n, x1, y1, x2, y2):
     gameStateCopy = copy.deepcopy(gameState)
@@ -70,6 +78,7 @@ def bfs(gsStart):
         if goalAchieved(gs):
             result =  findPath(node, visited)
             print_boom(gs["white"][0][1], gs["white"][0][2])
+            print_gamestate(gs)
             return result
         else:
             for nextNode in possibleChildren(gs, node[1]):
