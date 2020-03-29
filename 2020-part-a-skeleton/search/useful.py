@@ -12,6 +12,11 @@ def distance(t1, t2):
     x2,y2 = getCoords(t2)
     return max(abs(x1-x2), abs(y1-y2))
 
+def manhattanDistance(t1, t2):
+    x1,y1 = getCoords(t1)
+    x2,y2 = getCoords(t2)
+    return abs(x1-x2) + abs(y1-y2)
+
 def goalAchieved(gameState):
 
     nbBlack = len(gameState["black"])
@@ -72,6 +77,34 @@ def possibleChildren(gs, cost):
                     result.append((move(gs, k, token[1], token[2], token[1], token[2]-i), cost+1, gs))
     return result
 
+def estimatedCost(gs):
+    nbBlacks = len(gs["black"])
+    groups = []
+    grouped = [False for _ in range(nbBlacks)]
+    for i in range(nbBlacks):
+        if not grouped[i]:
+            grouped[i] = True
+            newGroup = [gs["black"][i]]
+            for j in range(i+1, nbBlacks):
+                if (not grouped[j]) and (min([distance(gs["black"][j], token) for token in newGroup])<=1):
+                    newGroup.append(gs["black"][j])
+                    grouped[j] = True
+            groups.append(newGroup)
+    
+    availableTokens = copy.deepcopy(gs["white"])
+    for token in availableTokens:
+        for group in groups:
+            if min([distance(token, target) for target in group])<=1:
+                groups.remove(group)
+                token[0] -= 1
+                break
+
+    total = 0
+    for token in availableTokens:
+        total += sum([sum([token[0]*manhattanDistance(token, target) for target in group]) for group in groups])
+    return (total // sum([len(group) for group in groups]))
+
+
 def sortGs(gs):
     gs["white"].sort()
     gs["black"].sort()
@@ -91,14 +124,14 @@ def boomAll(gs):
 
 def bfs(gsStart):
     sortGs(gsStart)
+    # Node = ((gameState, last_action), cost_so_far, parent_node)
     visited = [((gsStart, []), 0, None)]
     queue = [((gsStart, []), 0, None)]
     i = 0
     display = {}
-    while queue and i<4000:
+    while queue:
         node = queue.pop(0)
         gs = node[0][0]
-        print_gamestate(gs)
         if goalAchieved(gs):
             result =  findPath(node, visited)
             boomAll(gs)
@@ -110,6 +143,7 @@ def bfs(gsStart):
                 if nextNode[0][0] not in [node[0][0] for node in visited]:
                     queue.append(nextNode)
                     visited.append(nextNode)
+            queue.sort(key = (lambda newNode: newNode[1] + estimatedCost(newNode[0][0])))
             display[(gs["white"][0][1],gs["white"][0][2])] = str(node[1]) + str(i)
             i += 1
     print_board(display)
