@@ -28,14 +28,29 @@ def goalAchieved(gameState):
 def move(gameState, n, x1, y1, x2, y2):
     gameStateCopy = copy.deepcopy(gameState)
     tokenMoved = list(filter(lambda token: getCoords(token) == [x1,y1], gameStateCopy["white"]))[0]
+    tokensOnTarget = occupiedWhite(gameStateCopy, x2, y2)
     if tokenMoved[0] == n:
-        tokenMoved[1] = x2
-        tokenMoved[2] = y2
+        if tokensOnTarget is None:
+            tokenMoved[1] = x2
+            tokenMoved[2] = y2
+        else:
+            gameStateCopy["white"].remove(tokenMoved)
+            tokensOnTarget[0] += n
     else:
         tokenMoved[0] -= n
-        gameStateCopy["white"].append([n,x2,y2])
+        if tokensOnTarget is None:
+            gameStateCopy["white"].append([n,x2,y2])
+        else:
+            tokensOnTarget[0] += n
     return (gameStateCopy, ["move", n, x1, y1, x2, y2])
 
+def occupiedWhite(gs, x, y):
+    tokens = list(filter(lambda token: getCoords(token) == [x,y], gs["white"]))
+    if len(tokens) > 0:
+        return tokens[0]
+    else:
+        return None
+    
 def occupied(gs, x, y):
     return (len(list(filter(lambda token: getCoords(token) == [x,y], gs["black"]))) > 0)
 
@@ -57,6 +72,10 @@ def possibleChildren(gs, cost):
                     result.append((move(gs, k, token[1], token[2], token[1], token[2]-i), cost+1, gs))
     return result
 
+def sortGs(gs):
+    gs["white"].sort()
+    gs["black"].sort()
+
 def findPath(node, visited):
     if node[1] == 0:
         return []
@@ -66,22 +85,28 @@ def findPath(node, visited):
             print_move(node[0][1][1:])
         return result
         
+def boomAll(gs):
+    for token in gs["white"]:
+        print_boom(token[1], token[2])
 
 def bfs(gsStart):
+    sortGs(gsStart)
     visited = [((gsStart, []), 0, None)]
     queue = [((gsStart, []), 0, None)]
     i = 0
     display = {}
-    while queue:
+    while queue and i<4000:
         node = queue.pop(0)
         gs = node[0][0]
+        print_gamestate(gs)
         if goalAchieved(gs):
             result =  findPath(node, visited)
-            print_boom(gs["white"][0][1], gs["white"][0][2])
+            boomAll(gs)
             print_gamestate(gs)
             return result
         else:
             for nextNode in possibleChildren(gs, node[1]):
+                sortGs(nextNode[0][0])
                 if nextNode[0][0] not in [node[0][0] for node in visited]:
                     queue.append(nextNode)
                     visited.append(nextNode)
