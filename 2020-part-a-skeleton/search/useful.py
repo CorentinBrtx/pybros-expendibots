@@ -1,8 +1,11 @@
 """
 This module contains some useful functions for different actions.
 """
+
+# pylint: disable=import-error
+
 import copy
-from util import *
+from search.util import print_move, print_boom, print_board, print_gamestate
 
 def getCoords(token):
     return [token[1], token[2]]
@@ -77,7 +80,7 @@ def possibleChildren(gs, cost):
                     result.append((move(gs, k, token[1], token[2], token[1], token[2]-i), cost+1, gs))
     return result
 
-def estimatedCost(gs):
+def groupBlacks(gs):
     nbBlacks = len(gs["black"])
     groups = []
     grouped = [False for _ in range(nbBlacks)]
@@ -91,6 +94,12 @@ def estimatedCost(gs):
                     grouped[j] = True
             groups.append(newGroup)
     
+    return groups
+
+def estimatedCost(gs, groupsParam):
+    
+    groups = groupsParam.copy()
+
     availableTokens = copy.deepcopy(gs["white"])
     for token in availableTokens:
         for group in groups:
@@ -98,6 +107,9 @@ def estimatedCost(gs):
                 groups.remove(group)
                 token[0] -= 1
                 break
+    
+    if groups == []:
+        return 0
 
     total = 0
     for token in availableTokens:
@@ -124,6 +136,8 @@ def boomAll(gs):
 
 def bfs(gsStart):
     sortGs(gsStart)
+    print_gamestate(gsStart)
+    groups = groupBlacks(gsStart)
     # Node = ((gameState, last_action), cost_so_far, parent_node)
     visited = [((gsStart, []), 0, None)]
     queue = [((gsStart, []), 0, None)]
@@ -143,7 +157,7 @@ def bfs(gsStart):
                 if nextNode[0][0] not in [node[0][0] for node in visited]:
                     queue.append(nextNode)
                     visited.append(nextNode)
-            queue.sort(key = (lambda newNode: newNode[1] + estimatedCost(newNode[0][0])))
+            queue.sort(key = (lambda newNode: 2*newNode[1] + estimatedCost(newNode[0][0], groups)))
             display[(gs["white"][0][1],gs["white"][0][2])] = str(node[1]) + str(i)
             i += 1
     print_board(display)

@@ -1,4 +1,4 @@
-from useful import *
+from useful import bfs
 
 gameState = {
     "white": [[1,0,1],[1,1,0],[1,2,2]],
