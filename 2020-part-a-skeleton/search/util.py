@@ -3,11 +3,12 @@ This module contains some helper functions for printing actions and boards.
 Feel free to use and/or modify them to help you develop your program.
 """
 
-def print_move(n, x_a, y_a, x_b, y_b, **kwargs):
+def print_move(moveList, **kwargs):
     """
     Output a move action of n pieces from square (x_a, y_a)
     to square (x_b, y_b), according to the format instructions.
     """
+    n, x_a, y_a, x_b, y_b = moveList
     print("MOVE {} from {} to {}.".format(n, (x_a, y_a), (x_b, y_b)), **kwargs)
 
 
