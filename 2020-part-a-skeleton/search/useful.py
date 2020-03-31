@@ -8,6 +8,7 @@ import copy
 from search.util import print_move, print_boom, print_board, print_gamestate
 
 
+
 def getCoords(token):
     """ Returns the coordinates of a token (or a stack of tokens)
     
@@ -62,6 +63,9 @@ def goalAchieved(gameState):
     nbBlack = len(gameState["black"])
     killed = [False for _ in range(nbBlack)]
 
+    if len(gameState["white"]) == 0:
+        return nbBlack == 0;
+
     for _ in range(nbBlack):
         for i in range(nbBlack):
             if not killed[i]:
@@ -69,6 +73,21 @@ def goalAchieved(gameState):
                     killed[i] = True
 
     return all(killed)
+
+def boom(gameState, x, y):
+    gameStateCopy = copy.deepcopy(gameState)
+    tokenBoomed = list(filter(lambda token: getCoords(token) == [x,y], gameStateCopy["white"]))[0]
+
+    groups = groupBlacks(gameState)
+
+    for group in groups:
+        if min([distance(tokenBoomed, token) for token in group]) <= 1:
+            for token in group:
+                gameStateCopy["black"].remove(token)
+
+    gameStateCopy["white"].remove(tokenBoomed)
+    return (gameStateCopy, ["boom", x, y])
+
 
 
 def move(gameState, n, x1, y1, x2, y2):
@@ -138,6 +157,7 @@ def possibleChildren(gs, cost):
     """
     result = []
     for token in gs["white"]:
+        result.append((boom(gs, token[1], token[2]), cost+1, gs))
         for i in range(1,token[0]+1):
             if (token[1]+i)<=7 and not(occupied(gs, token[1]+i, token[2])):
                 for k in range(i, token[0]+1):
@@ -190,7 +210,10 @@ def estimatedCost(gs, groupsParam):
         int -- estimated cost
     """
     
-    groups = groupsParam.copy()
+    groups = groupBlacks(gs)
+
+    if len(groups) > len(gs["white"]):
+        return 10000
 
     # Here, if a white token can kill a group of black tokens by exploding, then we don't take this token into account for the estimated cost, and we consider the related group of black tokens as killed 
     availableTokens = copy.deepcopy(gs["white"])
@@ -232,6 +255,8 @@ def findPath(node, visited):
         result = findPath(list(filter(lambda n: n[0][0] == node[2], visited))[0], visited) + [node[0]]
         if node[0][1][0] == "move":
             print_move(node[0][1][1:])
+        elif node[0][1][0] == "boom":
+            print_boom(node[0][1][1], node[0][1][2])
         return result
         
 def boomAll(gs):
@@ -273,7 +298,7 @@ def bfs(gsStart):
                     queue.append(nextNode)
                     visited.append(nextNode)
             queue.sort(key = (lambda newNode: 2*newNode[1] + estimatedCost(newNode[0][0], groups)))
-            display[(gs["white"][0][1],gs["white"][0][2])] = str(node[1]) + str(i)
+            #display[(gs["white"][0][1],gs["white"][0][2])] = str(node[1]) + str(i)
             i += 1
     print_board(display)
          
