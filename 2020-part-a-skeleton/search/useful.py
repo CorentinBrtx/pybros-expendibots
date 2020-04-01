@@ -326,8 +326,11 @@ def findPath(node, visited):
 
 def boomAll(gs):
     """ Prints "boom" for every white token """
-    for token in gs["white"]:
+    if len(gs["white"]) > 0:
+        token = gs["white"][0] 
         print_boom(token[1], token[2])
+        newGs = boom(gs, token[1], token[2], groupBlacks(gs))[0]
+        boomAll(newGs)
 
 
 def insort(l, node, f):
