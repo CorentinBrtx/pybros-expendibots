@@ -5,9 +5,19 @@ This module contains some useful functions for different actions.
 # pylint: disable=import-error
 
 import copy
+import time
 from search.util import print_move, print_boom, print_board, print_gamestate
 
+timeEstimate = 0
+time2 = 0
+time3 = 0
+count = 0
+timeGoalCheck = 0
+timeChild = 0
 
+class hashabledict(dict):
+    def __hash__(self):
+        return hash(tuple(sorted(self.items())))
 
 def getCoords(token):
     """ Returns the coordinates of a token (or a stack of tokens)
@@ -31,9 +41,8 @@ def distance(t1, t2):
     Returns:
         int -- "boom" distance (maximum between distances in lines or in columns)
     """
-    x1,y1 = getCoords(t1)
-    x2,y2 = getCoords(t2)
-    return max(abs(x1-x2), abs(y1-y2))
+    result = max(abs(t1[1]-t2[1]), abs(t1[2]-t2[2]))
+    return result
 
 
 def manhattanDistance(t1, t2):
@@ -51,46 +60,58 @@ def manhattanDistance(t1, t2):
     return abs(x1-x2) + abs(y1-y2)
 
 
-def goalAchieved(gameState):
+def goalAchieved(gameState, groups):
     """ Returns True if the goal is reached with the specified gamestate
     
     Arguments:
-        gameState { } -- dictionary with the lists of the white and the black tokens
+        gameState {gamestate} -- dictionary with the lists of the white and the black tokens
     
     Returns:
         bool -- True if all the black tokens would be killed by the explosion of all the white tokens, False otherwise
     """
+    global timeGoalCheck
+
+    start_time = time.time()
     nbBlack = len(gameState["black"])
-    killed = [False for _ in range(nbBlack)]
+    killed = [False for _ in groups]
 
     if len(gameState["white"]) == 0:
-        return nbBlack == 0;
+        return nbBlack == 0
 
-    for _ in range(nbBlack):
-        for i in range(nbBlack):
-            if not killed[i]:
-                if min([distance(gameState["black"][i], wToken) for wToken in gameState["white"]] + [distance(gameState["black"][i], gameState["black"][j]) for j in range(nbBlack) if killed[j]]) <= 1:
-                    killed[i] = True
+    for wToken in gameState["white"]:
+        for i in range(len(groups)):
+            if min([distance(wToken, token) for token in groups[i]]) <= 1:
+                killed[i] = True
+
+    timeGoalCheck += (time.time() - start_time)
 
     return all(killed)
 
-def boom(gameState, x, y):
+
+def boom(gameState, x, y, groupsOld):
     gameStateCopy = copy.deepcopy(gameState)
+    groups = []
+
     tokenBoomed = list(filter(lambda token: getCoords(token) == [x,y], gameStateCopy["white"]))[0]
 
-    groups = groupBlacks(gameState)
-
-    for group in groups:
+    for group in groupsOld:
         if min([distance(tokenBoomed, token) for token in group]) <= 1:
             for token in group:
                 gameStateCopy["black"].remove(token)
+        else:
+            groups.append(group)
 
-    gameStateCopy["white"].remove(tokenBoomed)
-    return (gameStateCopy, ["boom", x, y])
+    for wToken in gameState["white"]:
+        if min([distance(wToken, token) for group in groupsOld for token in group if (group not in groups)] + [distance(wToken, tokenBoomed)]) <= 1:
+            gameStateCopy["white"].remove(wToken)
+
+    if tokenBoomed in gameStateCopy["white"]:
+        gameStateCopy["white"].remove(tokenBoomed)
+        
+    return (gameStateCopy, ["boom", x, y], groups)
 
 
-
-def move(gameState, n, x1, y1, x2, y2):
+def move(gameState, n, x1, y1, x2, y2, groups):
     """ This function returns the new gamestate after moving the token as specified, along with a list explaining what the move was
     
     Arguments:
@@ -118,7 +139,7 @@ def move(gameState, n, x1, y1, x2, y2):
             gameStateCopy["white"].append([n,x2,y2])
         else:
             tokensOnTarget[0] += n
-    return (gameStateCopy, ["move", n, x1, y1, x2, y2])
+    return (gameStateCopy, ["move", n, x1, y1, x2, y2], groups)
 
 
 def occupiedWhite(gs, x, y):
@@ -145,7 +166,7 @@ def occupied(gs, x, y):
     return (len(list(filter(lambda token: getCoords(token) == [x,y], gs["black"]))) > 0)
 
 
-def possibleChildren(gs, cost):
+def possibleChildren(gs, cost, groups):
     """ This function returns all the gamestates reachable from the current one within one move
     
     Arguments:
@@ -155,22 +176,32 @@ def possibleChildren(gs, cost):
     Returns:
         list((gamestate, moveRecap), int, gamestate) -- ((new gamestate, recap of the move made), cost of the path to the new gamestate, parent gamestate)
     """
+
+    global timeChild
+
+    start_time = time.time()
     result = []
     for token in gs["white"]:
-        result.append((boom(gs, token[1], token[2]), cost+1, gs))
+        boomResult = boom(gs, token[1], token[2], groups)
+        result.append((boomResult, cost+1, estimatedCost(boomResult[0],boomResult[2]), gs))
         for i in range(1,token[0]+1):
             if (token[1]+i)<=7 and not(occupied(gs, token[1]+i, token[2])):
                 for k in range(i, token[0]+1):
-                    result.append((move(gs, k, token[1], token[2], token[1]+i, token[2]), cost+1, gs))
+                    moveResult = move(gs, k, token[1], token[2], token[1]+i, token[2], groups)
+                    result.append((moveResult, cost+1, estimatedCost(moveResult[0], moveResult[2]), gs))
             if (token[1]-i)>=0 and not(occupied(gs, token[1]-i, token[2])):
                 for k in range(i, token[0]+1):
-                    result.append((move(gs, k, token[1], token[2], token[1]-i, token[2]), cost+1, gs))
+                    moveResult = move(gs, k, token[1], token[2], token[1]-i, token[2], groups)
+                    result.append((moveResult, cost+1, estimatedCost(moveResult[0],moveResult[2]), gs))
             if (token[2]+i)<=7 and not(occupied(gs, token[1], token[2]+i)):
                 for k in range(i, token[0]+1):
-                    result.append((move(gs, k, token[1], token[2], token[1], token[2]+i), cost+1, gs))
+                    moveResult = move(gs, k, token[1], token[2], token[1], token[2]+i, groups)
+                    result.append((moveResult, cost+1, estimatedCost(moveResult[0], moveResult[2]), gs))
             if (token[2]-i)>=0 and not(occupied(gs, token[1], token[2]-i)):
                 for k in range(i, token[0]+1):
-                    result.append((move(gs, k, token[1], token[2], token[1], token[2]-i), cost+1, gs))
+                    moveResult = move(gs, k, token[1], token[2], token[1], token[2]-i, groups)
+                    result.append((moveResult, cost+1, estimatedCost(moveResult[0],moveResult[2]), gs))
+    timeChild += (time.time() - start_time)
     return result
 
 
@@ -186,14 +217,17 @@ def groupBlacks(gs):
     nbBlacks = len(gs["black"])
     groups = []
     grouped = [False for _ in range(nbBlacks)]
+
     for i in range(nbBlacks):
         if not grouped[i]:
             grouped[i] = True
             newGroup = [gs["black"][i]]
-            for j in range(i+1, nbBlacks):
-                if (not grouped[j]) and (min([distance(gs["black"][j], token) for token in newGroup])<=1):
-                    newGroup.append(gs["black"][j])
-                    grouped[j] = True
+            left = len([t for t in grouped if not(t)])
+            for _ in range(left):
+                for j in range(i+1, nbBlacks):
+                    if (not grouped[j]) and (min([distance(gs["black"][j], token) for token in newGroup])<=1):
+                        newGroup.append(gs["black"][j])
+                        grouped[j] = True
             groups.append(newGroup)
     
     return groups
@@ -209,28 +243,54 @@ def estimatedCost(gs, groupsParam):
     Returns:
         int -- estimated cost
     """
-    
-    groups = groupBlacks(gs)
+    global timeEstimate
+    global time2
+    global time3
+    global count
 
+    count += 1
+    start_time = time.time()
+
+    groups = []
+
+    """
     if len(groups) > len(gs["white"]):
+        timeEstimate += (time.time() - start_time)
         return 10000
+    """
 
+    start_time2 = time.time()
+    
     # Here, if a white token can kill a group of black tokens by exploding, then we don't take this token into account for the estimated cost, and we consider the related group of black tokens as killed 
     availableTokens = copy.deepcopy(gs["white"])
+    killed = [False for _ in range(len(groupsParam))]
     for token in availableTokens:
-        for group in groups:
-            if min([distance(token, target) for target in group])<=1:
-                groups.remove(group)
-                token[0] -= 1
-                break
+        explode = False
+        for i in range(len(groupsParam)):
+            if not killed[i]:
+                group = groupsParam[i]
+                if min([distance(token, target) for target in group])<=1:
+                    explode = True
+                    killed[i] = True
+        if explode:
+            token[0] -= 1
+
+    time2 += (time.time() - start_time2)
+
+    groups = [groupsParam[i] for i in range(len(groupsParam)) if not killed[i]]
     
+
     if groups == []:
+        timeEstimate += (time.time() - start_time)
         return 0
 
+    start_time3 = time.time()
     # For each remaining white token, we compute the average manhattan distance with any black tokens group still alive, and we finally sum all these averages
     total = 0
     for token in availableTokens:
-        total += sum([sum([token[0]*manhattanDistance(token, target) for target in group]) for group in groups])
+        total += sum([token[0]*manhattanDistance(token, target) for group in groups for target in group])
+    timeEstimate += (time.time() - start_time)
+    time3 += (time.time() - start_time3)
     return (total // sum([len(group) for group in groups]))
 
 
@@ -238,6 +298,7 @@ def sortGs(gs):
     """ Sorts the lists of tokens in the gamestate """
     gs["white"].sort()
     gs["black"].sort()
+
 
 def findPath(node, visited):
     """ This function prints all the moves made to go from the initial gamestate to the final one
@@ -252,17 +313,27 @@ def findPath(node, visited):
     if node[1] == 0:
         return []
     else:
-        result = findPath(list(filter(lambda n: n[0][0] == node[2], visited))[0], visited) + [node[0]]
+        result = findPath(list(filter(lambda n: n[0][0] == node[3], visited))[0], visited) + [node[0]]
         if node[0][1][0] == "move":
             print_move(node[0][1][1:])
         elif node[0][1][0] == "boom":
             print_boom(node[0][1][1], node[0][1][2])
         return result
         
+
 def boomAll(gs):
     """ Prints "boom" for every white token """
     for token in gs["white"]:
         print_boom(token[1], token[2])
+
+def insort(l, node, f):
+    lo = 0
+    hi = len(l)
+    while lo < hi:
+        mid = (lo+hi)//2
+        if f(l[mid]) < f(node): lo = mid+1
+        else: hi = mid
+    l.insert(lo, node)
 
 def bfs(gsStart):
     """ This function finds a solution using an a-star search algorithm, with the estimatedCost function combined with the real cost of the paths as a heuristic
@@ -273,32 +344,56 @@ def bfs(gsStart):
     Returns:
         list(node) -- List of the nodes from the initial to the final one
     """
+    timeSortGs = 0
+    timeTest = 0
     sortGs(gsStart)
     print_gamestate(gsStart)
     groups = groupBlacks(gsStart)
 
-    # The type of the nodes is as follow : ((gamestate, moveRecap), int, node)
-    # which corresponds to : node = ((gameState, last_action), cost_so_far, parent_node)
-    visited = [((gsStart, []), 0, None)]
-    queue = [((gsStart, []), 0, None)]
+    start_total = time.time()
+    # The type of the nodes is as follow : ((gamestate, moveRecap, list(list(token))), int, node)
+    # which corresponds to : node = ((gameState, last_action, groups_of_blacks), cost_so_far, parent_node)
+    estimCost = estimatedCost(gsStart, groups)
+    visited = [((gsStart, [], groups), 0, estimCost, None)]
+    visitedGs = set(flatTuple(gsStart))
+    queue = [((gsStart, [], groups), 0, estimCost, None)]
     i = 0
     display = {}
     while queue:
         node = queue.pop(0)
         gs = node[0][0]
-        if goalAchieved(gs):
+        # print_gamestate(gs)
+        if goalAchieved(gs, groups):
             result =  findPath(node, visited)
             boomAll(gs)
             print_gamestate(gs)
+            print("# Nb of estimation cost : " + str(count))
+            print("# TimeEstimation : " + str(timeEstimate))
+            print("# Time estimation selection : " + str(time2))
+            print("# Time estimation calculation : " + str(time3))
+            print("# Time Goal : " + str(timeGoalCheck))
+            print("# Time find children : " + str(timeChild))
+            print("# Time insort : " + str(timeSortGs))
+            print("# Time total : " + str(time.time() - start_total))
+            print("# Time test : " + str(timeTest))
             return result
         else:
-            for nextNode in possibleChildren(gs, node[1]):
+            for nextNode in possibleChildren(gs, node[1], node[0][2]):
                 sortGs(nextNode[0][0])
-                if nextNode[0][0] not in [node[0][0] for node in visited]:
-                    queue.append(nextNode)
+                startTest = time.time()
+                if flatTuple(nextNode[0][0]) not in visitedGs:
+                    timeTest += (time.time() - startTest)
+                    start_time_insorting = time.time()
+                    insort(queue, nextNode, (lambda newNode: 2*newNode[1] + newNode[2]))
                     visited.append(nextNode)
-            queue.sort(key = (lambda newNode: 2*newNode[1] + estimatedCost(newNode[0][0], groups)))
+                    visitedGs.add(flatTuple(nextNode[0][0]))
+                    timeSortGs += (time.time() - start_time_insorting)
+                else:
+                    timeTest += (time.time() - startTest)
+            #queue.sort(key = (lambda newNode: 2*newNode[1] + newNode[2]))
             #display[(gs["white"][0][1],gs["white"][0][2])] = str(node[1]) + str(i)
             i += 1
     print_board(display)
          
+def flatTuple(gs):
+    return tuple(map(tuple, gs["white"] + gs["black"]))

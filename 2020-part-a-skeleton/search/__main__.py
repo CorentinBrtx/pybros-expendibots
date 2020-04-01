@@ -13,7 +13,7 @@ def main():
         data = json.load(file)
 
     bfs(data)
-    print(time.time() - start_time)
+    print("# Time of execution : " + str(time.time() - start_time))
 
 if __name__ == '__main__':
     main()
