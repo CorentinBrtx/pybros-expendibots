@@ -5,15 +5,7 @@ This module contains some useful functions for different actions.
 # pylint: disable=import-error
 
 import copy
-import time
 from search.util import print_move, print_boom, print_board, print_gamestate
-
-timeEstimate = 0
-time2 = 0
-time3 = 0
-count = 0
-timeGoalCheck = 0
-timeChild = 0
 
 
 def getCoords(token):
@@ -67,9 +59,7 @@ def goalAchieved(gameState, groups):
     Returns:
         bool -- True if all the black tokens would be killed by the explosion of all the white tokens, False otherwise
     """
-    global timeGoalCheck
 
-    start_time = time.time()
     nbBlack = len(gameState["black"])
     killed = [False for _ in groups]
 
@@ -80,8 +70,6 @@ def goalAchieved(gameState, groups):
         for i in range(len(groups)):
             if min([distance(wToken, token) for token in groups[i]]) <= 1:
                 killed[i] = True
-
-    timeGoalCheck += (time.time() - start_time)
 
     return all(killed)
 
@@ -187,9 +175,6 @@ def possibleChildren(gs, cost, groups):
         list((gamestate, moveRecap), int, int, gamestate) -- ((new gamestate, recap of the move made), cost of the path to the new gamestate, estimated cost until a goal state, parent gamestate)
     """
 
-    global timeChild
-
-    start_time = time.time()
     result = []
     for token in gs["white"]:
         boomResult = boom(gs, token[1], token[2], groups)
@@ -211,7 +196,6 @@ def possibleChildren(gs, cost, groups):
                 for k in range(i, token[0]+1):
                     moveResult = move(gs, k, token[1], token[2], token[1], token[2]-i, groups)
                     result.append((moveResult, cost+1, estimatedCost(moveResult[0], moveResult[2]), gs))
-    timeChild += (time.time() - start_time)
     return result
 
 
@@ -253,17 +237,7 @@ def estimatedCost(gs, groupsParam):
     Returns:
         int -- estimated cost
     """
-    global timeEstimate
-    global time2
-    global time3
-    global count
-
-    count += 1
-    start_time = time.time()
-
     groups = []
-
-    start_time2 = time.time()
 
     # Here, if a white token can kill a group of black tokens by exploding, then we don't take this token into account for the estimated cost, and we consider the related group of black tokens as killed
     availableTokens = copy.deepcopy(gs["white"])
@@ -279,21 +253,15 @@ def estimatedCost(gs, groupsParam):
         if explode:
             token[0] -= 1
 
-    time2 += (time.time() - start_time2)
-
     groups = [groupsParam[i] for i in range(len(groupsParam)) if not killed[i]]
 
     if groups == []:
-        timeEstimate += (time.time() - start_time)
         return 0
 
-    start_time3 = time.time()
     # For each remaining white token, we compute the average manhattan distance with any black tokens group still alive, and we finally sum all these averages
     total = 0
     for token in availableTokens:
         total += sum([token[0]*manhattanDistance(token, target) for group in groups for target in group])
-    timeEstimate += (time.time() - start_time)
-    time3 += (time.time() - start_time3)
     return (total // sum([len(group) for group in groups]))
 
 
@@ -327,7 +295,7 @@ def findPath(node, visited):
 def boomAll(gs):
     """ Prints "boom" for every white token """
     if len(gs["white"]) > 0:
-        token = gs["white"][0] 
+        token = gs["white"][0]
         print_boom(token[1], token[2])
         newGs = boom(gs, token[1], token[2], groupBlacks(gs))[0]
         boomAll(newGs)
@@ -369,17 +337,12 @@ def bfs(gsStart):
     Returns:
         list(node) -- List of the nodes from the initial to the final one
     """
-    timeSortGs = 0
-    timeTest = 0
-
-    start_total = time.time()
-
     sortGs(gsStart)
     print_gamestate(gsStart)
     groups = groupBlacks(gsStart)
 
     # The type of the nodes is as follow : ((gamestate, moveRecap, list(list(token))), int, int, node)
-    # which corresponds to : node = ((gameState, last_action, groups_of_blacks), cost_so_far, estimated_cost, parent_node)
+    # which corresponds to : node = ((gameState, last_action, groups_of_blacks), cost_so_far, estimated_cost, parent_gamestate)
     estimCost = estimatedCost(gsStart, groups)
     visited = [((gsStart, [], groups), 0, estimCost, None)]
     # The use of a set instead of a list increases the performances
@@ -393,29 +356,12 @@ def bfs(gsStart):
             result = findPath(node, visited)
             boomAll(gs)
             print_gamestate(gs)
-            print("# Nb of estimation cost : " + str(count))
-            print("# TimeEstimation : " + str(timeEstimate))
-            print("# Time estimation selection : " + str(time2))
-            print("# Time estimation calculation : " + str(time3))
-            print("# Time Goal : " + str(timeGoalCheck))
-            print("# Time find children : " + str(timeChild))
-            print("# Time insort : " + str(timeSortGs))
-            print("# Time total : " + str(time.time() - start_total))
-            print("# Time test : " + str(timeTest))
             return result
 
         else:
             for nextNode in possibleChildren(gs, node[1], node[0][2]):
                 sortGs(nextNode[0][0])
-                startTest = time.time()
-
                 if flatTuple(nextNode[0][0]) not in visitedGs:
-                    timeTest += (time.time() - startTest)
-                    start_time_insorting = time.time()
                     insort(queue, nextNode, (lambda newNode: 2*newNode[1] + newNode[2]))
                     visited.append(nextNode)
                     visitedGs.add(flatTuple(nextNode[0][0]))
-                    timeSortGs += (time.time() - start_time_insorting)
-
-                else:
-                    timeTest += (time.time() - startTest)
