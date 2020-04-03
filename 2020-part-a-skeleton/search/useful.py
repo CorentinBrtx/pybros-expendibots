@@ -30,8 +30,20 @@ def distance(t1, t2):
     Returns:
         int -- "boom" distance (maximum between distances in lines or in columns)
     """
-    result = max(abs(t1[1]-t2[1]), abs(t1[2]-t2[2]))
-    return result
+    x1, y1 = t1[1], t1[2]
+    x2, y2 = t2[1], t2[2]
+    if x1 > x2:
+        difx = x1-x2
+    else:
+        difx = x2-x1
+    if y1 > y2:
+        dify = y1-y2
+    else:
+        dify = y2-y1
+    if difx > dify:
+        return difx
+    else:
+        return dify
 
 
 def manhattanDistance(t1, t2):
@@ -44,9 +56,17 @@ def manhattanDistance(t1, t2):
     Returns:
         int -- manhattan distance
     """
-    x1, y1 = getCoords(t1)
-    x2, y2 = getCoords(t2)
-    return abs(x1-x2) + abs(y1-y2)
+    x1, y1 = t1[1], t1[2]
+    x2, y2 = t2[1], t2[2]
+    if x1 > x2:
+        difx = x1-x2
+    else:
+        difx = x2-x1
+    if y1 > y2:
+        dify = y1-y2
+    else:
+        dify = y2-y1
+    return difx+dify
 
 
 def goalAchieved(gameState, groups):
@@ -68,8 +88,10 @@ def goalAchieved(gameState, groups):
 
     for wToken in gameState["white"]:
         for i in range(len(groups)):
-            if min([distance(wToken, token) for token in groups[i]]) <= 1:
-                killed[i] = True
+            for token in groups[i]:
+                if distance(wToken, token) <= 1:
+                    killed[i] = True
+                    break
 
     return all(killed)
 
@@ -86,21 +108,38 @@ def boom(gameState, x, y, groupsOld):
     Returns:
         (gamestate, [str,int,int], list(list(token))) -- (new_gamestate, explaination of the boom, new_groups)
     """
-    gameStateCopy = copy.deepcopy(gameState)
+    #gameStateCopy = copy.deepcopy(gameState)
+    gameStateCopy = {"white": gameState["white"].copy(), "black": gameState["black"].copy()}
+
     groups = []
 
     tokenBoomed = list(filter(lambda token: getCoords(token) == [x, y], gameStateCopy["white"]))[0]
 
     for group in groupsOld:
-        if min([distance(tokenBoomed, token) for token in group]) <= 1:
-            for token in group:
-                gameStateCopy["black"].remove(token)
-        else:
+        killed = False
+        for token1 in group:
+            if distance(tokenBoomed, token1) <= 1:
+                for token in group:
+                    gameStateCopy["black"].remove(token)
+                killed = True
+                break
+        if not killed:
             groups.append(group)
 
     for wToken in gameState["white"]:
-        if min([distance(wToken, token) for group in groupsOld for token in group if (group not in groups)] + [distance(wToken, tokenBoomed)]) <= 1:
+        removed = False
+        if distance(wToken, tokenBoomed) <= 1:
             gameStateCopy["white"].remove(wToken)
+            removed = True
+        for group in groupsOld:
+            if removed:
+                break
+            elif group not in groups:
+                for token in group:
+                    if distance(wToken, token) <= 1:
+                        gameStateCopy["white"].remove(wToken)
+                        removed = True
+                        break
 
     if tokenBoomed in gameStateCopy["white"]:
         gameStateCopy["white"].remove(tokenBoomed)
@@ -121,22 +160,28 @@ def move(gameState, n, x1, y1, x2, y2, groups):
     Returns:
         (gamestate, [str, int, int, int, int, int], groups) -- new gamestate, a list to recap the move made, and the groups of black tokens
     """
-    gameStateCopy = copy.deepcopy(gameState)
+    gameStateCopy = {"white": gameState["white"].copy(), "black": gameState["black"]}
     tokenMoved = list(filter(lambda token: getCoords(token) == [x1, y1], gameStateCopy["white"]))[0]
     tokensOnTarget = occupiedWhite(gameStateCopy, x2, y2)
     if tokenMoved[0] == n:
         if tokensOnTarget is None:
-            tokenMoved[1] = x2
-            tokenMoved[2] = y2
+            gameStateCopy["white"].remove(tokenMoved)
+            gameStateCopy["white"].append([n, x2, y2])
         else:
             gameStateCopy["white"].remove(tokenMoved)
-            tokensOnTarget[0] += n
+            alreadyHere = tokensOnTarget[0]
+            gameStateCopy["white"].remove(tokensOnTarget)
+            gameStateCopy["white"].append([n+alreadyHere, x2, y2])
     else:
-        tokenMoved[0] -= n
+        here = tokenMoved[0]
+        gameStateCopy["white"].remove(tokenMoved)
+        gameStateCopy["white"].append([here-n, x1, y1])
         if tokensOnTarget is None:
             gameStateCopy["white"].append([n, x2, y2])
         else:
-            tokensOnTarget[0] += n
+            alreadyHere = tokensOnTarget[0]
+            gameStateCopy["white"].remove(tokensOnTarget)
+            gameStateCopy["white"].append([n+alreadyHere, x2, y2])
     return (gameStateCopy, ["move", n, x1, y1, x2, y2], groups)
 
 
@@ -151,16 +196,18 @@ def occupiedWhite(gs, x, y):
     Returns:
         int -- Number of white tokens
     """
-    tokens = list(filter(lambda token: getCoords(token) == [x, y], gs["white"]))
-    if len(tokens) > 0:
-        return tokens[0]
-    else:
-        return None
+    for token in gs["white"]:
+        if (token[1], token[2]) == (x, y):
+            return token
+    return None
 
 
 def occupied(gs, x, y):
     """ Returns True if there is a black token on the specified position, False otherwise """
-    return (len(list(filter(lambda token: getCoords(token) == [x, y], gs["black"]))) > 0)
+    for token in gs["black"]:
+        if (token[1], token[2]) == (x, y):
+            return True
+    return False
 
 
 def possibleChildren(gs, cost, groups):
@@ -181,19 +228,19 @@ def possibleChildren(gs, cost, groups):
         result.append((boomResult, cost+1, estimatedCost(boomResult[0], boomResult[2]), gs))
         for i in range(1, token[0]+1):
             if (token[1]+i) <= 7 and not(occupied(gs, token[1]+i, token[2])):
-                for k in range(i, token[0]+1):
+                for k in range(1, token[0]+1):
                     moveResult = move(gs, k, token[1], token[2], token[1]+i, token[2], groups)
                     result.append((moveResult, cost+1, estimatedCost(moveResult[0], moveResult[2]), gs))
             if (token[1]-i) >= 0 and not(occupied(gs, token[1]-i, token[2])):
-                for k in range(i, token[0]+1):
+                for k in range(1, token[0]+1):
                     moveResult = move(gs, k, token[1], token[2], token[1]-i, token[2], groups)
                     result.append((moveResult, cost+1, estimatedCost(moveResult[0], moveResult[2]), gs))
             if (token[2]+i) <= 7 and not(occupied(gs, token[1], token[2]+i)):
-                for k in range(i, token[0]+1):
+                for k in range(1, token[0]+1):
                     moveResult = move(gs, k, token[1], token[2], token[1], token[2]+i, groups)
                     result.append((moveResult, cost+1, estimatedCost(moveResult[0], moveResult[2]), gs))
             if (token[2]-i) >= 0 and not(occupied(gs, token[1], token[2]-i)):
-                for k in range(i, token[0]+1):
+                for k in range(1, token[0]+1):
                     moveResult = move(gs, k, token[1], token[2], token[1], token[2]-i, groups)
                     result.append((moveResult, cost+1, estimatedCost(moveResult[0], moveResult[2]), gs))
     return result
@@ -240,18 +287,23 @@ def estimatedCost(gs, groupsParam):
     groups = []
 
     # Here, if a white token can kill a group of black tokens by exploding, then we don't take this token into account for the estimated cost, and we consider the related group of black tokens as killed
-    availableTokens = copy.deepcopy(gs["white"])
+    #availableTokens = copy.deepcopy(gs["white"])
+    availableTokens = gs["white"].copy()
     killed = [False for _ in range(len(groupsParam))]
     for token in availableTokens:
         explode = False
         for i in range(len(groupsParam)):
             if not killed[i]:
                 group = groupsParam[i]
-                if min([distance(token, target) for target in group]) <= 1:
-                    explode = True
-                    killed[i] = True
+                for target in group:
+                    if distance(token, target) <= 1:
+                        explode = True
+                        killed[i] = True
+                        break
         if explode:
-            token[0] -= 1
+            stack = token[0]
+            availableTokens.remove(token)
+            availableTokens.append([stack-1, token[1], token[2]])
 
     groups = [groupsParam[i] for i in range(len(groupsParam)) if not killed[i]]
 
@@ -260,9 +312,18 @@ def estimatedCost(gs, groupsParam):
 
     # For each remaining white token, we compute the average manhattan distance with any black tokens group still alive, and we finally sum all these averages
     total = 0
+    totalWhite = 0
+    for token in gs["white"]:
+        for target in gs["white"]:
+            totalWhite += token[0]*manhattanDistance(token, target)
     for token in availableTokens:
-        total += sum([token[0]*manhattanDistance(token, target) for group in groups for target in group])
-    return (total // sum([len(group) for group in groups]))
+        for group in groups:
+            totalgroup = 0
+            for target in group:
+                totalgroup += token[0]*manhattanDistance(token, target)
+            total += totalgroup//len(group)
+
+    return (total + 20*totalWhite)
 
 
 def sortGs(gs):
