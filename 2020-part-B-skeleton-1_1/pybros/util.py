@@ -1,7 +1,7 @@
 
 # pylint: disable=import-error
 
-from utilPrint import print_move, print_boom, print_board, print_gamestate
+from pybros.utilPrint import print_move, print_boom, print_board, print_gamestate
 
 
 def get_coords(token):

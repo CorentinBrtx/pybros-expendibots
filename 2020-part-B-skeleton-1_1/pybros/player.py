@@ -2,8 +2,8 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 
-from utilPrint import print_gamestate
-from util import distance, occupied_mine, minimax
+from pybros.utilPrint import print_gamestate
+from pybros.util import distance, occupied_mine, minimax
 
 
 class Player:
@@ -11,12 +11,12 @@ class Player:
     def __init__(self, colour):
 
         self.gameState = {
-            "white": [[1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1], [1, 3, 0], [1, 3, 1], [1, 4, 0], [1, 4, 1], [1, 6, 0], [1, 6, 1], [1, 7, 0], [1, 7, 1]],
+            "white": [[1, 0, 0], [1, 0, 1], [1, 1, 5], [1, 1, 1], [1, 3, 0], [1, 3, 1], [1, 4, 0], [1, 4, 1], [1, 6, 0], [1, 6, 1], [1, 7, 0], [1, 7, 1]],
             "black": [[1, 0, 7], [1, 0, 6], [1, 1, 7], [1, 1, 6], [1, 3, 7], [1, 3, 6], [1, 4, 7], [1, 4, 6], [1, 6, 7], [1, 6, 6], [1, 7, 7], [1, 7, 6]]
         }
         self.colour = colour
 
-        print_gamestate(self.gameState)
+        #print_gamestate(self.gameState)
 
     def action(self):
         """
@@ -55,7 +55,7 @@ class Player:
                     moved_token = token
                     break
 
-            tokens_on_target = occupied_mine(self.gameState, self.colour, action[3][0], action[3][1])
+            tokens_on_target = occupied_mine(self.gameState, colour, action[3][0], action[3][1])
 
             if moved_token[0] == action[1]:
                 self.gameState[colour].remove(moved_token)
@@ -67,4 +67,4 @@ class Player:
             else:
                 tokens_on_target[0] += action[1]
 
-        print_gamestate(self.gameState)
+        #print_gamestate(self.gameState)
