@@ -1,7 +1,8 @@
 
 # pylint: disable=import-error
 
-from pybros.utilPrint import print_move, print_boom, print_board, print_gamestate
+from utilPrint import print_move, print_boom, print_board, print_gamestate
+from math import inf
 
 
 def get_coords(token):
@@ -65,7 +66,7 @@ def manhattan_distance(t1, t2):
     return difx+dify
 
 
-def boom(gameState, colour, action):
+def boom(gameState, colour, action, groups):
     """ This function return the new gamestate after the explosion of the stack of tokens placed in (x,y)
 
     Arguments:
@@ -78,25 +79,46 @@ def boom(gameState, colour, action):
     """
 
     (x, y) = action
+    other = other_colour(colour)
 
     gameStateCopy = {"white": gameState["white"].copy(), "black": gameState["black"].copy()}
 
     for token in gameStateCopy[colour]:
         if (token[1], token[2]) == (x, y):
-            boomedTokens = [token]
+            boomed_tokens = [token]
             break
 
     explosion = True
     while explosion:
         explosion = False
-        for c in gameStateCopy.keys():
-            for token in gameStateCopy[c]:
-                for boomedToken in boomedTokens:
-                    if distance(token, boomedToken) <= 1:
-                        boomedTokens.append(token)
-                        gameStateCopy[c].remove(token)
+        old_boomed_tokens = boomed_tokens
+        old_groups = groups
+        boomed_tokens = []
+        groups = []
+
+        for token in gameStateCopy[colour]:
+            for boomed_token in old_boomed_tokens:
+                    if distance(token, boomed_token) <= 1:
+                        boomed_tokens.append(token)
+                        gameStateCopy[colour].remove(token)
                         explosion = True
                         break
+
+        for group in old_groups:
+            boomed = False
+            for boomed_token in old_boomed_tokens:
+                for token in group:
+                    if distance(token, boomed_token) <= 1:
+                        for t in group:
+                            boomed_tokens.append(t)
+                            gameStateCopy[other].remove(t)
+                        explosion = True
+                        boomed = True
+                        break
+                if boomed:
+                    break
+            if not boomed:
+                groups.append(group)
 
     return (gameStateCopy, ("BOOM", (x, y)))
 
@@ -170,6 +192,29 @@ def occupied_other(gs, colour, x, y):
             return True
     return False
 
+def group_other_tokens(gs, colour):
+    other = other_colour(colour)
+
+    nb_others = len(gs[other])
+    groups = []
+    grouped = [False for _ in range(nb_others)]
+
+    for i in range(nb_others):
+        if not grouped[i]:
+            grouped[i] = True
+            new_group = [gs[other][i]]
+            not_grouped = len([t for t in grouped if not(t)])
+            for _ in range(not_grouped):
+                for j in range(i+1, nb_others):
+                    if not grouped[j]: 
+                        for token in new_group:
+                            if distance(gs[other][j], token) <= 1:
+                                new_group.append(gs[other][j])
+                                grouped[j] = True
+                                break
+            groups.append(new_group)
+
+    return groups
 
 def possible_children(gs, colour):
     """ This function returns all the gamestates reachable from the current one within one move
@@ -182,8 +227,9 @@ def possible_children(gs, colour):
     """
 
     result = []
+    groups = group_other_tokens(gs, colour)
     for token in gs[colour]:
-        boomResult = boom(gs, colour, (token[1], token[2]))
+        boomResult = boom(gs, colour, (token[1], token[2]), groups)
         result.append(boomResult)
         for i in range(1, token[0]+1):
             if (token[1]+i) <= 7 and not(occupied_other(gs, colour, token[1]+i, token[2])):
@@ -242,27 +288,25 @@ def minimax(gs, colour):
 
     children = possible_children(gs, colour)
 
-    values = []
-    for i in range(len(children)):
-        values.append(minimax_value(children[i], colour, 1))
+    alpha = -inf
+    beta = inf
+    best_move = None
+    for child in children:
+        value = minimax_value(child, colour, 1, alpha, beta)
+        if value > alpha:
+            best_move = child[1]
+            alpha = value
 
-    max_value = values[0]
-    max_index = 0
-    for i in range(len(children)):
-        if values[i] > max_value:
-            max_index = i
-            max_value = values[i]
-
-    return children[max_index][1]
+    return best_move
 
 
-def minimax_value(operation, colour, depth):
+def minimax_value(operation, colour, depth, alpha, beta):
 
     gs = operation[0]
 
     other = other_colour(colour)
 
-    if depth >= 2:
+    if depth >= 4:
         return utility_value(gs, colour)
     else:
         if depth % 2 == 0:
@@ -270,13 +314,21 @@ def minimax_value(operation, colour, depth):
             if children == []:
                 return utility_value(gs, colour)
             else:
-                return max(list(map(lambda op: minimax_value(op, colour, depth+1), children)))
+                for child in children:
+                    alpha = max(alpha, minimax_value(child, colour, depth+1, alpha, beta))
+                    if alpha >= beta:
+                        return beta
+                return alpha
         else:
             children = possible_children(gs, other)
             if children == []:
                 return utility_value(gs, colour)
             else:
-                return min(list(map(lambda op: minimax_value(op, colour, depth+1), children)))
+                for child in children:
+                    beta = min(beta, minimax_value(child, colour, depth+1, alpha, beta))
+                    if beta <= alpha:
+                        return alpha
+                return beta
 
 
 def utility_value(gs, colour):
