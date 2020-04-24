@@ -4,6 +4,7 @@
 
 from utilPrint import print_gamestate
 from util import distance, occupied_mine, minimax
+from opening_moves import read_opening_moves, sort_gs, flat_tuple
 
 
 class Player:
@@ -15,6 +16,7 @@ class Player:
             "black": [[1, 0, 7], [1, 0, 6], [1, 1, 7], [1, 1, 6], [1, 3, 7], [1, 3, 6], [1, 4, 7], [1, 4, 6], [1, 6, 7], [1, 6, 6], [1, 7, 7], [1, 7, 6]]
         }
         self.colour = colour
+        self.book_opening_moves = read_opening_moves()
 
         print_gamestate(self.gameState)
 
@@ -27,8 +29,12 @@ class Player:
         return an allowed action to play on this turn. The action must be
         represented based on the spec's instructions for representing actions.
         """
+        sort_gs(self.gameState)
+        if flat_tuple(self.gameState) in self.book_opening_moves:
+            return self.book_opening_moves[flat_tuple(self.gameState)]
 
-        return minimax(self.gameState, self.colour)
+        else:
+            return minimax(self.gameState, self.colour)
 
     def update(self, colour, action):
         if action[0] == "BOOM":
@@ -67,4 +73,4 @@ class Player:
             else:
                 tokens_on_target[0] += action[1]
 
-        print_gamestate(self.gameState)
+        #print_gamestate(self.gameState)

@@ -1,7 +1,7 @@
 
 # pylint: disable=import-error
 
-from utilPrint import print_move, print_boom, print_board, print_gamestate
+#from pybros.utilPrint import print_move, print_boom, print_board, print_gamestate
 from math import inf
 
 
@@ -306,7 +306,7 @@ def minimax_value(operation, colour, depth, alpha, beta):
 
     other = other_colour(colour)
 
-    if depth >= 4:
+    if depth >= 3 or (len(gs[other])==0) or (len(gs[colour])==0):
         return utility_value(gs, colour)
     else:
         if depth % 2 == 0:
@@ -342,7 +342,12 @@ def utility_value(gs, colour):
     for token in gs[other]:
         nb_other += token[0]
 
-    return nb_mine - nb_other
+    if nb_mine>0 and nb_other>0:
+        add = distance(gs[colour][0], gs[other][0])
+    else:
+        add=0
+
+    return (nb_mine - nb_other) + 5*add
 
 
 def other_colour(colour):
