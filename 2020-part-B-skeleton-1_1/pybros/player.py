@@ -21,17 +21,10 @@ class Player:
         print_gamestate(self.gameState)
 
     def action(self):
-        """
-        This method is called at the beginning of each of your turns to request 
-        a choice of action from your program.
-
-        Based on the current state of the game, your player should select and 
-        return an allowed action to play on this turn. The action must be
-        represented based on the spec's instructions for representing actions.
-        """
+        
         sort_gs(self.gameState)
-        if flat_tuple(self.gameState) in self.book_opening_moves:
-            return self.book_opening_moves[flat_tuple(self.gameState)]
+        if (flat_tuple(self.gameState), self.colour) in self.book_opening_moves:
+            return self.book_opening_moves[(flat_tuple(self.gameState), self.colour)]
 
         else:
             return minimax(self.gameState, self.colour)
