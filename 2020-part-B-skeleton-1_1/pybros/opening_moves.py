@@ -4,7 +4,8 @@
 import csv
 import os
 import pathlib
-from util import possible_children, other_colour
+from pybros.util import possible_children, other_colour
+from pybros.utilPrint import display_gamestate
 
 
 def sort_gs(gs):
@@ -46,7 +47,7 @@ def add_opening_move(gs, colour, move, symetric=True, replace=False):
                 book[(flat_tuple(symetric_gs), new_colour)] = new_move
 
         for (gs_tuple, colour) in book.keys():
-            w.writerow([str((reverse_flat_tuple(gs_tuple), colour)), str(book[(gs_tuple, colour)])])
+            w.writerow([str((reverse_flat_tuple(gs_tuple), colour)), str(book[(gs_tuple, colour)]), display_gamestate(reverse_flat_tuple(gs_tuple))])
 
 
 def read_opening_moves():
@@ -60,17 +61,4 @@ def read_opening_moves():
     return book
 
 
-# for child in possible_children({
-#     "white": [[1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1], [1, 3, 0], [1, 3, 1], [1, 4, 0], [1, 4, 1], [1, 6, 0], [1, 6, 1], [1, 7, 0], [1, 7, 1]],
-#     "black": [[1, 0, 7], [1, 0, 6], [1, 1, 7], [1, 1, 6], [1, 3, 7], [1, 3, 6], [1, 4, 7], [1, 4, 6], [1, 6, 7], [1, 6, 6], [1, 7, 7], [1, 7, 6]]
-# }, "black"):
-#     add_opening_move(child[0], "white", ("MOVE", 1, (3, 1), (3, 2)), replace=True)
-
-
-# add_opening_move({
-#     "white": [[1, 0, 0], [1, 0, 1], [1, 1, 0], [1, 1, 1], [1, 3, 0], [1, 3, 1], [1, 4, 0], [1, 4, 1], [1, 6, 0], [1, 6, 1], [1, 7, 0], [1, 7, 1]],
-#     "black": [[1, 0, 7], [1, 0, 6], [1, 1, 7], [1, 1, 6], [1, 3, 7], [1, 3, 6], [1, 4, 7], [1, 4, 6], [1, 6, 7], [1, 6, 6], [1, 7, 7], [1, 7, 6]]
-# }, "white", ("MOVE", 1, (3, 1), (3, 2)), replace=True)
-
-
-print(read_opening_moves())
+# print(read_opening_moves())

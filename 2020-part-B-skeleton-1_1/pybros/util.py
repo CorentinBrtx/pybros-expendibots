@@ -98,11 +98,11 @@ def boom(gameState, colour, action, groups):
 
         for token in gameStateCopy[colour]:
             for boomed_token in old_boomed_tokens:
-                    if distance(token, boomed_token) <= 1:
-                        boomed_tokens.append(token)
-                        gameStateCopy[colour].remove(token)
-                        explosion = True
-                        break
+                if distance(token, boomed_token) <= 1:
+                    boomed_tokens.append(token)
+                    gameStateCopy[colour].remove(token)
+                    explosion = True
+                    break
 
         for group in old_groups:
             boomed = False
@@ -192,6 +192,7 @@ def occupied_other(gs, colour, x, y):
             return True
     return False
 
+
 def group_other_tokens(gs, colour):
     other = other_colour(colour)
 
@@ -206,7 +207,7 @@ def group_other_tokens(gs, colour):
             not_grouped = len([t for t in grouped if not(t)])
             for _ in range(not_grouped):
                 for j in range(i+1, nb_others):
-                    if not grouped[j]: 
+                    if not grouped[j]:
                         for token in new_group:
                             if distance(gs[other][j], token) <= 1:
                                 new_group.append(gs[other][j])
@@ -215,6 +216,7 @@ def group_other_tokens(gs, colour):
             groups.append(new_group)
 
     return groups
+
 
 def possible_children(gs, colour):
     """ This function returns all the gamestates reachable from the current one within one move
@@ -306,7 +308,7 @@ def minimax_value(operation, colour, depth, alpha, beta):
 
     other = other_colour(colour)
 
-    if depth >= 3 or (len(gs[other])==0) or (len(gs[colour])==0):
+    if depth >= 3 or (len(gs[other]) == 0) or (len(gs[colour]) == 0):
         return utility_value(gs, colour)
     else:
         if depth % 2 == 0:
@@ -342,12 +344,40 @@ def utility_value(gs, colour):
     for token in gs[other]:
         nb_other += token[0]
 
-    if nb_mine>0 and nb_other>0:
-        add = distance(gs[colour][0], gs[other][0])
-    else:
-        add=0
+    return 5*(nb_mine - nb_other) + nb_mine - nb_neighbours(gs, colour) + nb_stack(gs, colour) + nb_within_reach(gs, colour)
+    
 
-    return (nb_mine - nb_other) + 5*add
+
+def nb_within_reach(gs, colour):
+    other = other_colour(colour)
+    total = 0
+
+    for i in range(len(gs[colour])):
+        for j in range(len(gs[other])):
+            if distance(gs[colour][i], gs[other][j]) <= 1:
+                total += 1
+
+    return total
+
+
+def nb_neighbours(gs, colour):
+    total = 0
+
+    for i in range(len(gs[colour])):
+        for j in range(i+1, len(gs[colour])):
+            if distance(gs[colour][i], gs[colour][j]) <= 1:
+                total += 1
+
+    return total
+
+
+def nb_stack(gs, colour):
+    total = 0
+
+    for i in range(len(gs[colour])):
+        total += gs[colour][i][0] - 1
+
+    return total
 
 
 def other_colour(colour):
