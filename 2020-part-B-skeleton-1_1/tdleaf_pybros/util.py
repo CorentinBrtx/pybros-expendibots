@@ -1,7 +1,7 @@
 
 # pylint: disable=import-error
 
-#from pybros.utilPrint import print_move, print_boom, print_board, print_gamestate
+from tdleaf_pybros.utilPrint import print_move, print_boom, print_board, print_gamestate
 from math import inf, tanh
 
 
@@ -286,7 +286,7 @@ def flat_tuple(gs):
     return tuple(map(tuple, gs["white"] + gs["black"]))
 
 
-def minimax(gs, colour):
+def minimax(gs, colour, weights):
 
     children = possible_children(gs, colour)
 
@@ -295,58 +295,69 @@ def minimax(gs, colour):
         nb_mine += token[0]
 
     if nb_mine < 5:
-        max_depth = 5
+        max_depth = 4
     else:
         max_depth = 3
 
     alpha = -inf
     beta = inf
     best_move = None
+    best_leaf = None
     for child in children:
-        value = minimax_value(child, colour, 1, alpha, beta, max_depth)
+        value, gs_leaf = minimax_value(child, colour, 1, alpha, beta, max_depth, weights)
         if value > alpha:
             best_move = child[1]
+            best_leaf = gs_leaf
             alpha = value
 
     print(alpha)
-    return best_move
+    # print_gamestate(best_leaf)
+    return best_move, alpha, best_leaf
 
 
-def minimax_value(operation, colour, depth, alpha, beta, max_depth):
+def minimax_value(operation, colour, depth, alpha, beta, max_depth, weights):
 
     gs = operation[0]
 
     other = other_colour(colour)
 
     if (len(gs[colour]) == 0):
-        return -1
+        return -1, gs
     elif (len(gs[other]) == 0):
-        return 1
+        return 1, gs
     elif depth >= max_depth:
-        return tanh(evaluation(gs, colour))
+        return tanh(evaluation(gs, colour, weights)), gs
     else:
         if depth % 2 == 0:
             children = possible_children(gs, colour)
+            best = None
             for child in children:
-                alpha = max(alpha, minimax_value(child, colour, depth+1, alpha, beta, max_depth))
+                value, gs_leaf = minimax_value(child, colour, depth+1, alpha, beta, max_depth, weights)
+                if value > alpha:
+                    alpha = value
+                    best = gs_leaf
                 if alpha >= beta:
-                    return beta
-            return alpha
+                    return beta, None
+            return alpha, best
         else:
             children = possible_children(gs, other)
+            best = None
             for child in children:
-                beta = min(beta, minimax_value(child, colour, depth+1, alpha, beta, max_depth))
+                value, gs_leaf = minimax_value(child, colour, depth+1, alpha, beta, max_depth, weights)
+                if value < beta:
+                    beta = value
+                    best = gs_leaf
                 if beta <= alpha:
-                    return alpha
-            return beta
+                    return alpha, None
+            return beta, best
 
 
-def evaluation(gs, colour):
+def evaluation(gs, colour, w):
     other = other_colour(colour)
 
     mine, other, within_reach, neighbours, stacks, agressivity = features(gs, colour)
 
-    return 5*mine - 7*other - 1*neighbours + 1*stacks + 2*within_reach + 1*agressivity
+    return w[0]*mine + w[1]*other + w[2]*neighbours + w[3]*stacks + w[4]*within_reach + w[5]*agressivity
 
 
 def features(gs, colour):
@@ -372,10 +383,10 @@ def features(gs, colour):
             if distance(gs[colour][i], gs[other][j]) <= 1:
                 within_reach += gs[other][j][0]
 
-    if colour == "black":
+    if colour=="black":
         agressivity = 7*total_mine - agressivity
 
-    return total_mine/12, total_other/12, within_reach/total_other, total_neighbours/(8*len(gs[colour])), total_stacks/total_mine, agressivity/(7*total_mine)
+    return total_mine/12, total_other/12, within_reach/(total_other+1), total_neighbours/(8*len(gs[colour])+1), total_stacks/(total_mine+1), agressivity/(7*total_mine+1)
 
 
 def other_colour(colour):
