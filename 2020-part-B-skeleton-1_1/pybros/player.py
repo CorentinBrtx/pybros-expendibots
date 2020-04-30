@@ -18,6 +18,8 @@ class Player:
         self.colour = colour
         self.book_opening_moves = read_opening_moves()
 
+        self.weights = [5.3,-5.8,0.5,-0.6,-0.3,1.4]
+
         # print_gamestate(self.gameState)
 
     def action(self):
@@ -27,7 +29,7 @@ class Player:
             return self.book_opening_moves[(flat_tuple(self.gameState), self.colour)]
 
         else:
-            return minimax(self.gameState, self.colour)
+            return minimax(self.gameState, self.colour, self.weights)
 
     def update(self, colour, action):
         if action[0] == "BOOM":

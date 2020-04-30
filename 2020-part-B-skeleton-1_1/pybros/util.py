@@ -43,6 +43,23 @@ def distance(t1, t2):
         return dify
 
 
+def within_reach(t1, t2):
+    x1, y1 = t1[1], t1[2]
+    x2, y2 = t2[1], t2[2]
+    if x1 > x2:
+        difx = x1-x2
+    else:
+        difx = x2-x1
+    if y1 > y2:
+        dify = y1-y2
+    else:
+        dify = y2-y1
+    if difx > dify:
+        return difx <= 1
+    else:
+        return dify <= 1
+
+
 def manhattan_distance(t1, t2):
     """ Returns the manhattan distance between two tokens
 
@@ -286,7 +303,7 @@ def flat_tuple(gs):
     return tuple(map(tuple, gs["white"] + gs["black"]))
 
 
-def minimax(gs, colour):
+def minimax(gs, colour, weights):
 
     children = possible_children(gs, colour)
 
@@ -294,16 +311,19 @@ def minimax(gs, colour):
     for token in gs[colour]:
         nb_mine += token[0]
 
-    if nb_mine < 5:
+    if nb_mine <= 3:
         max_depth = 5
+    elif nb_mine <= 6:
+        max_depth = 4
     else:
         max_depth = 3
 
     alpha = -inf
     beta = inf
     best_move = None
+
     for child in children:
-        value = minimax_value(child, colour, 1, alpha, beta, max_depth)
+        value = minimax_value(child, colour, 1, alpha, beta, max_depth, weights)
         if value > alpha:
             best_move = child[1]
             alpha = value
@@ -312,7 +332,7 @@ def minimax(gs, colour):
     return best_move
 
 
-def minimax_value(operation, colour, depth, alpha, beta, max_depth):
+def minimax_value(operation, colour, depth, alpha, beta, max_depth, weights):
 
     gs = operation[0]
 
@@ -323,59 +343,70 @@ def minimax_value(operation, colour, depth, alpha, beta, max_depth):
     elif (len(gs[other]) == 0):
         return 1
     elif depth >= max_depth:
-        return tanh(evaluation(gs, colour))
+        return tanh(evaluation(gs, colour, weights))
     else:
         if depth % 2 == 0:
             children = possible_children(gs, colour)
             for child in children:
-                alpha = max(alpha, minimax_value(child, colour, depth+1, alpha, beta, max_depth))
+                alpha = max(alpha, minimax_value(child, colour, depth+1, alpha, beta, max_depth, weights))
                 if alpha >= beta:
                     return beta
             return alpha
         else:
             children = possible_children(gs, other)
             for child in children:
-                beta = min(beta, minimax_value(child, colour, depth+1, alpha, beta, max_depth))
+                beta = min(beta, minimax_value(child, colour, depth+1, alpha, beta, max_depth, weights))
                 if beta <= alpha:
                     return alpha
             return beta
 
 
-def evaluation(gs, colour):
-    other = other_colour(colour)
+def evaluation(gs, colour, w):
 
-    mine, other, within_reach, neighbours, stacks, agressivity = features(gs, colour)
+    f = features(gs, colour)
 
-    return 5*mine - 7*other - 1*neighbours + 1*stacks + 2*within_reach + 1*agressivity
+    return sum([w[i]*f[i] for i in range(len(f))])
 
 
 def features(gs, colour):
     other = other_colour(colour)
+
     total_mine = 0
-    total_other = 0
-    within_reach = 0
+    total_enemy = 0
+    total_within_reach = 0
     total_neighbours = 0
-    total_stacks = 0
+    # total_stacks = [0 for i in range(13)]
+    # total_stacks_enemy = [0 for i in range(13)]
     agressivity = 0
 
     for token in gs[other]:
-        total_other += token[0]
+        total_enemy += token[0]
+        # total_stacks_enemy[token[0]] -= 1
 
     for i in range(len(gs[colour])):
-        total_stacks += gs[colour][i][0] - 1
+        # total_stacks[gs[colour][i][0]] += 1
         total_mine += gs[colour][i][0]
-        agressivity += gs[colour][i][2]*gs[colour][i][0]
+
         for j in range(i+1, len(gs[colour])):
-            if distance(gs[colour][i], gs[colour][j]) <= 1:
+            if within_reach(gs[colour][i], gs[colour][j]):
                 total_neighbours += 2
+
         for j in range(len(gs[other])):
-            if distance(gs[colour][i], gs[other][j]) <= 1:
-                within_reach += gs[other][j][0]
+            agressivity += gs[colour][i][0]*gs[other][j][0]*distance(gs[colour][i], gs[other][j])
+            # if within_reach(gs[colour][i], gs[other][j]):
+            #     total_within_reach += gs[other][j][0]
 
-    if colour == "black":
-        agressivity = 7*total_mine - agressivity
+    # if colour == "black":
+    #     agressivity = 7*total_mine - agressivity
 
-    return total_mine/12, total_other/12, within_reach/total_other, total_neighbours/(8*len(gs[colour])), total_stacks/total_mine, agressivity/(7*total_mine)
+    return [total_mine/12,
+            total_enemy/12,
+            total_within_reach/(total_enemy+1),
+            total_neighbours/(8*len(gs[colour])+1),
+            agressivity/(7*total_mine*total_enemy+1),
+            (total_mine/total_enemy)-1] \
+        # + total_stacks[2:] \
+    # + total_stacks_enemy[2:]
 
 
 def other_colour(colour):

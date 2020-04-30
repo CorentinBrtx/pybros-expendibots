@@ -3,6 +3,15 @@
 
 from tdleaf_pybros.utilPrint import print_move, print_boom, print_board, print_gamestate
 from math import inf, tanh
+import random
+
+
+class Minimax:
+
+    def __init__(self, gamestate, colour, weights):
+        self.gamestate = gamestate
+        self.colour = colour
+        self.weights = weights
 
 
 def get_coords(token):
@@ -41,6 +50,23 @@ def distance(t1, t2):
         return difx
     else:
         return dify
+
+
+def within_reach(t1, t2):
+    x1, y1 = t1[1], t1[2]
+    x2, y2 = t2[1], t2[2]
+    if x1 > x2:
+        difx = x1-x2
+    else:
+        difx = x2-x1
+    if y1 > y2:
+        dify = y1-y2
+    else:
+        dify = y2-y1
+    if difx > dify:
+        return difx <= 1
+    else:
+        return dify <= 1
 
 
 def manhattan_distance(t1, t2):
@@ -253,12 +279,6 @@ def possible_children(gs, colour):
     return result
 
 
-def sort_gs(gs):
-    """ Sorts the lists of tokens in the gamestate """
-    gs["white"].sort()
-    gs["black"].sort()
-
-
 def insort(l, node, f):
     """ Insert a node in a sorted list using a key function f
 
@@ -281,11 +301,6 @@ def insort(l, node, f):
     l.insert(lo, node)
 
 
-def flat_tuple(gs):
-    """ This function turns the gamestate in a tuple of tuples, in order to make it hashable """
-    return tuple(map(tuple, gs["white"] + gs["black"]))
-
-
 def minimax(gs, colour, weights):
 
     children = possible_children(gs, colour)
@@ -294,7 +309,9 @@ def minimax(gs, colour, weights):
     for token in gs[colour]:
         nb_mine += token[0]
 
-    if nb_mine < 5:
+    if nb_mine <= 3:
+        max_depth = 6
+    elif nb_mine <= 6:
         max_depth = 4
     else:
         max_depth = 3
@@ -303,6 +320,7 @@ def minimax(gs, colour, weights):
     beta = inf
     best_move = None
     best_leaf = None
+
     for child in children:
         value, gs_leaf = minimax_value(child, colour, 1, alpha, beta, max_depth, weights)
         if value > alpha:
@@ -311,7 +329,6 @@ def minimax(gs, colour, weights):
             alpha = value
 
     print(alpha)
-    # print_gamestate(best_leaf)
     return best_move, alpha, best_leaf
 
 
@@ -353,40 +370,52 @@ def minimax_value(operation, colour, depth, alpha, beta, max_depth, weights):
 
 
 def evaluation(gs, colour, w):
-    other = other_colour(colour)
 
-    mine, other, within_reach, neighbours, stacks, agressivity = features(gs, colour)
+    f = features(gs, colour)
 
-    return w[0]*mine + w[1]*other + w[2]*neighbours + w[3]*stacks + w[4]*within_reach + w[5]*agressivity
+    return sum([w[i]*f[i] for i in range(len(f))])
 
 
 def features(gs, colour):
+
     other = other_colour(colour)
+
     total_mine = 0
-    total_other = 0
-    within_reach = 0
+    total_enemy = 0
+    total_within_reach = 0
     total_neighbours = 0
-    total_stacks = 0
+    # total_stacks = [0 for i in range(13)]
+    # total_stacks_enemy = [0 for i in range(13)]
     agressivity = 0
 
     for token in gs[other]:
-        total_other += token[0]
+        total_enemy += token[0]
+        # total_stacks_enemy[token[0]] -= 1
 
     for i in range(len(gs[colour])):
-        total_stacks += gs[colour][i][0] - 1
+        # total_stacks[gs[colour][i][0]] += 1
         total_mine += gs[colour][i][0]
-        agressivity += gs[colour][i][2]*gs[colour][i][0]
+
         for j in range(i+1, len(gs[colour])):
-            if distance(gs[colour][i], gs[colour][j]) <= 1:
+            if within_reach(gs[colour][i], gs[colour][j]):
                 total_neighbours += 2
+
         for j in range(len(gs[other])):
-            if distance(gs[colour][i], gs[other][j]) <= 1:
-                within_reach += gs[other][j][0]
+            agressivity += gs[colour][i][0]*gs[other][j][0]*distance(gs[colour][i], gs[other][j])
+            # if within_reach(gs[colour][i], gs[other][j]):
+            #     total_within_reach += gs[other][j][0]
 
-    if colour=="black":
-        agressivity = 7*total_mine - agressivity
+    # if colour == "black":
+    #     agressivity = 7*total_mine - agressivity
 
-    return total_mine/12, total_other/12, within_reach/(total_other+1), total_neighbours/(8*len(gs[colour])+1), total_stacks/(total_mine+1), agressivity/(7*total_mine+1)
+    return [total_mine/12,
+            total_enemy/12,
+            total_within_reach/(total_enemy+1),
+            total_neighbours/(8*len(gs[colour])+1),
+            agressivity/(7*total_mine*total_enemy+1),
+            (total_mine/total_enemy)-1] \
+        # + total_stacks[2:] \
+    # + total_stacks_enemy[2:]
 
 
 def other_colour(colour):

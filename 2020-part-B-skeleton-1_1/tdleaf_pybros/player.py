@@ -21,18 +21,20 @@ class Player:
         self.colour = colour
         self.book_opening_moves = read_opening_moves()
         self.states_list = []
+        self.turn = 0
 
         with open(os.path.join(os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir)), "weights.csv"), newline='') as csvfile:
             r = csv.reader(csvfile, delimiter=";")
-            for row in r:
-                self.weights = list(map(float, row))
+            row = next(r)
+            self.weights = list(map(float, row))
 
-        # print_gamestate(self.gamestate)
 
     def action(self):
 
-        sort_gs(self.gamestate)
-        if (flat_tuple(self.gamestate), self.colour) in self.book_opening_moves:
+        self.turn += 1
+
+        if self.turn == 1:
+            sort_gs(self.gamestate)
             return self.book_opening_moves[(flat_tuple(self.gamestate), self.colour)]
 
         else:
