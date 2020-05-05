@@ -2,12 +2,12 @@
 # pylint: disable=import-error
 # pylint: disable=no-name-in-module
 
-from tdleaf_pybros.utilPrint import print_gamestate
-from tdleaf_pybros.util import distance, occupied_mine, minimax
 from opening_moves.opening_moves import read_opening_moves, sort_gs, flat_tuple
 from tdleaf_pybros.train import train
+from tdleaf_pybros.util import Minimax
 import os
 import csv
+import time
 
 
 class Player:
@@ -21,7 +21,8 @@ class Player:
         self.colour = colour
         self.book_opening_moves = read_opening_moves()
         self.states_list = []
-        self.turn = 0
+        self.turn = 1
+        self.time_left = 50
 
         with open(os.path.join(os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir)), "weights.csv"), newline='') as csvfile:
             r = csv.reader(csvfile, delimiter=";")
@@ -31,18 +32,25 @@ class Player:
 
     def action(self):
 
-        self.turn += 1
+        start_time = time.time()
 
         if self.turn == 1:
             sort_gs(self.gamestate)
+            self.time_left -= (time.time() - start_time)
             return self.book_opening_moves[(flat_tuple(self.gamestate), self.colour)]
 
         else:
-            best_move, reward, leaf = minimax(self.gamestate, self.colour, self.weights)
+            minimax = Minimax(self.colour, self.weights, self.turn, self.time_left)
+            best_move, reward, leaf = minimax.best_action(self.gamestate)
             self.states_list.append((reward, leaf))
+            self.time_left -= (time.time() - start_time)
             return best_move
 
     def update(self, colour, action):
+
+        if colour==self.colour:
+            self.turn += 1
+            
         if action[0] == "BOOM":
             for token in self.gamestate[colour]:
                 if (token[1], token[2]) == action[1]:
@@ -55,7 +63,7 @@ class Player:
                 for c in self.gamestate.keys():
                     for token in self.gamestate[c]:
                         for boomed_token in boomed_tokens:
-                            if distance(token, boomed_token) <= 1:
+                            if self.within_reach(token, boomed_token):
                                 boomed_tokens.append(token)
                                 self.gamestate[c].remove(token)
                                 explosion = True
@@ -67,7 +75,7 @@ class Player:
                     moved_token = token
                     break
 
-            tokens_on_target = occupied_mine(self.gamestate, colour, action[3][0], action[3][1])
+            tokens_on_target = self.occupied_mine(self.gamestate, colour, action[3][0], action[3][1])
 
             if moved_token[0] == action[1]:
                 self.gamestate[colour].remove(moved_token)
@@ -82,4 +90,36 @@ class Player:
         if len(self.gamestate["white"]) == 0 or len(self.gamestate["black"]) == 0:
             train(self.states_list, self.colour)
 
-        # print_gamestate(self.gameState)
+        # print_gamestate(self.gamestate)
+
+    def within_reach(self, t1, t2):
+        x1, y1 = t1[1], t1[2]
+        x2, y2 = t2[1], t2[2]
+        if x1 > x2:
+            difx = x1-x2
+        else:
+            difx = x2-x1
+        if y1 > y2:
+            dify = y1-y2
+        else:
+            dify = y2-y1
+        if difx > dify:
+            return difx <= 1
+        else:
+            return dify <= 1
+
+    def occupied_mine(self, gs, colour, x, y):
+        """ Returns the number of white tokens on the specified position (None if there isn't any)
+
+        Arguments:
+            gs {gamestate} -- current gamestate
+            x {int} -- x coordinate
+            y {int} -- y coordinate
+
+        Returns:
+            int -- Number of white tokens
+        """
+        for token in gs[colour]:
+            if (token[1], token[2]) == (x, y):
+                return token
+        return None
