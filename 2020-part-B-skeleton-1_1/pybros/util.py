@@ -1,5 +1,4 @@
 
-
 from math import inf, tanh
 
 
@@ -33,6 +32,9 @@ class Minimax:
         elif nb_mine <= 6 and self.time_left < 20:
             max_depth = 3
             extra_depth = True
+        elif self.time_left < 20 and nb_mine >= 10:
+            max_depth = 2
+            extra_depth = True
         elif self.time_left < 20:
             max_depth = 3
             extra_depth = False
@@ -42,7 +44,7 @@ class Minimax:
         elif nb_mine <= 6:
             max_depth = 4
             extra_depth = True
-        elif nb_mine <= 10:
+        elif nb_mine <= 10 or (self.time_left > 40 and self.turn > 2):
             max_depth = 3
             extra_depth = True
         else:
@@ -61,7 +63,6 @@ class Minimax:
                 best_move = child[1]
                 alpha = value
 
-        # print(alpha)
         return best_move
 
     def minimax_value(self, gs, depth, alpha, beta, max_depth, extra_depth):

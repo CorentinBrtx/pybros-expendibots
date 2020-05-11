@@ -20,8 +20,10 @@ def print_boom(x, y, **kwargs):
     """
     print("BOOM at {}.".format((x, y)), **kwargs)
 
+
 def print_from_book(entry):
     print_gamestate(entry[0])
+
 
 def print_gamestate(gs):
     display = {}
@@ -30,6 +32,7 @@ def print_gamestate(gs):
     for token in gs["black"]:
         display[(token[1], token[2])] = "b"+str(token[0])
     print_board(display)
+
 
 def display_gamestate(gs):
     display = {}
@@ -170,6 +173,7 @@ def print_board(board_dict, message="", unicode=False, compact=True, **kwargs):
             cells.append(str(board_dict[xy])[:3].center(3))
     # print it
     print(template.format(message, *cells), **kwargs)
+
 
 def display_board(board_dict, message="", unicode=False, compact=True, **kwargs):
     """

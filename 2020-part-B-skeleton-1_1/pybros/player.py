@@ -3,7 +3,7 @@
 # pylint: disable=no-name-in-module
 
 from pybros.util import Minimax
-from opening_moves.opening_moves import read_opening_moves, sort_gs, flat_tuple
+from pybros.opening_moves import read_opening_moves, sort_gs, flat_tuple
 import time
 
 
@@ -18,25 +18,27 @@ class Player:
         self.colour = colour
         self.turn = 0
         self.book_opening_moves = read_opening_moves()
-        self.time_left = 50
+        self.time_left = 60
 
         self.weights = [6.5, -6.5, -0.37, 4.3, -0.1]
 
     def action(self):
 
-        start_time = time.time()
+        start_time = time.process_time()
 
         self.turn += 1
 
         if self.turn == 1:
             sort_gs(self.gameState)
-            self.time_left -= (time.time() - start_time)
+            stop_time = time.process_time()
+            self.time_left -= (stop_time - start_time)
             return self.book_opening_moves[(flat_tuple(self.gameState), self.colour)]
 
         else:
             minimax = Minimax(self.colour, self.weights, self.turn, self.time_left)
             best_action = minimax.best_action(self.gameState)
-            self.time_left -= (time.time() - start_time)
+            stop_time = time.process_time()
+            self.time_left -= (stop_time - start_time)
             return best_action
 
     def update(self, colour, action):

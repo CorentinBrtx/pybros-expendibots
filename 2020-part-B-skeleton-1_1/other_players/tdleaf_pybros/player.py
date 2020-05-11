@@ -22,7 +22,7 @@ class Player:
         self.book_opening_moves = read_opening_moves()
         self.states_list = []
         self.turn = 1
-        self.time_left = 50
+        self.time_left = 60
 
         with open(os.path.join(os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir)), "weights.csv"), newline='') as csvfile:
             r = csv.reader(csvfile, delimiter=";")
